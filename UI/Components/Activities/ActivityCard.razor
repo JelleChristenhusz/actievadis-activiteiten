@@ -1,0 +1,153 @@
+@using System.Globalization
+@using Shared.DTOs
+
+@* One activity as a card. Used for current activities and, for administrators, for finished ones. *@
+
+<article class="activity-card @(Status != ActivityStatus.Current ? "archived" : null)">
+
+    @if (string.IsNullOrWhiteSpace(Activity.ImageUrl))
+    {
+        <div class="activity-image activity-image-empty">Geen afbeelding</div>
+    }
+    else
+    {
+        <img class="activity-image" src="@Activity.ImageUrl" alt="Afbeelding van @Activity.Name" />
+    }
+
+    <div class="activity-body">
+        @if (Status == ActivityStatus.Finished)
+        {
+            <span class="status-badge status-finished">Afgelopen</span>
+        }
+
+        <h2 class="activity-name">@Activity.Name</h2>
+
+        <div class="activity-badges">
+            <span class="badge badge-cost">@FormatCost(Activity.Cost)</span>
+
+            @* Only shown when food is included; no label at all otherwise. *@
+            @if (Activity.IncludesFood)
+            {
+                <span class="badge badge-food">Inclusief eten</span>
+            }
+
+            @if (IsFull)
+            {
+                <span class="badge badge-full">Vol</span>
+            }
+        </div>
+
+        <dl class="activity-meta">
+            <dt>Wanneer</dt>
+            <dd>@FormatPeriod(Activity)</dd>
+
+            <dt>Waar</dt>
+            <dd>@Activity.Location</dd>
+
+            <dt>Deelnemers</dt>
+            <dd>@FormatParticipants(Activity.MinParticipants, Activity.MaxParticipants)</dd>
+
+            <dt>Meenemen</dt>
+            <dd>@(string.IsNullOrWhiteSpace(Activity.Requirements) ? "Geen benodigdheden" : Activity.Requirements)</dd>
+        </dl>
+
+        @if (string.IsNullOrWhiteSpace(Activity.Description))
+        {
+            <p class="activity-description empty"><em>Geen omschrijving.</em></p>
+        }
+        else
+        {
+            @* pre-line keeps the line breaks the organiser typed in the description *@
+            <p class="activity-description">@Activity.Description</p>
+        }
+
+        <div class="card-actions">
+            @if (confirmingDelete)
+            {
+                <p class="confirm-text">Weet je zeker dat je deze activiteit wilt verwijderen?</p>
+                <div class="confirm-buttons">
+                    <button class="btn-danger-solid" type="button" disabled="@Busy" @onclick="ConfirmDeleteAsync">
+                        @(Busy ? "Bezig..." : "Ja, verwijderen")
+                    </button>
+                    <button class="btn-outline-brand" type="button" disabled="@Busy" @onclick="() => confirmingDelete = false">Annuleren</button>
+                </div>
+            }
+            else
+            {
+                <a class="btn-outline-brand" href="/activities/@Activity.Id">Details bekijken</a>
+
+                @if (CanDelete)
+                {
+                    <a class="btn-outline-brand" href="/activities/@Activity.Id/edit">Wijzigen</a>
+                    <button class="btn-danger-outline" type="button" @onclick="() => confirmingDelete = true">Verwijderen</button>
+                }
+            }
+        </div>
+    </div>
+
+</article>
+
+@code {
+    private static readonly CultureInfo DutchCulture = new("nl-NL");
+
+    private bool confirmingDelete;
+
+    // No spot left for a new participant (a +1 never takes a spot). Only relevant while the activity is still to come.
+    private bool IsFull => Status == ActivityStatus.Current
+        && Activity.MaxParticipants is int maximum && Activity.RegistrationCount >= maximum;
+
+    [Parameter, EditorRequired]
+    public ActivityDto Activity { get; set; } = default!;
+
+    [Parameter]
+    public ActivityStatus Status { get; set; } = ActivityStatus.Current;
+
+    /// <summary>Shows the edit and delete buttons. Only for administrators, and only for current activities.</summary>
+    [Parameter]
+    public bool CanDelete { get; set; }
+
+    /// <summary>True while the parent page is deleting this activity.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public EventCallback<ActivityDto> OnDelete { get; set; }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        await OnDelete.InvokeAsync(Activity);
+        confirmingDelete = false;
+    }
+
+    // Same day:      "zaterdag 3 oktober 2026, 09:00 tot 10:00"
+    // Multiple days: "vrijdag 15 januari 2027, 18:00 tot zaterdag 16 januari 2027, 12:00"
+    private static string FormatPeriod(ActivityDto activity)
+    {
+        const string dateAndTime = "dddd d MMMM yyyy, HH:mm";
+
+        var start = activity.StartTime.ToString(dateAndTime, DutchCulture);
+        var end = activity.StartTime.Date == activity.EndTime.Date
+            ? activity.EndTime.ToString("HH:mm", DutchCulture)
+            : activity.EndTime.ToString(dateAndTime, DutchCulture);
+
+        return $"{start} tot {end}";
+    }
+
+    // 0 -> "Gratis", 3.5 -> "€ 3,50"
+    private static string FormatCost(decimal cost)
+    {
+        return cost == 0 ? "Gratis" : cost.ToString("C", DutchCulture);
+    }
+
+    // Both are optional, so every combination of filled in / empty gets its own text.
+    private static string FormatParticipants(int? minimum, int? maximum)
+    {
+        return (minimum, maximum) switch
+        {
+            (int min, int max) => $"minimaal {min}, maximaal {max}",
+            (int min, null) => $"minimaal {min}, geen maximum",
+            (null, int max) => $"geen minimum, maximaal {max}",
+            _ => "geen minimum of maximum"
+        };
+    }
+}

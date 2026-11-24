@@ -1,0 +1,70 @@
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Sticky, so the menu stays in reach while scrolling. It is also the anchor for the mobile menu. */
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--brand-navy);
+    padding: 12px 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.app-header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+.app-brand {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+/* The logo file has a white background, so it gets its own white pill on the dark bar. */
+.app-logo {
+    height: 30px;
+    width: auto;
+    background: #ffffff;
+    padding: 6px 12px;
+    border-radius: 9px;
+    box-sizing: content-box;
+}
+
+.app-main {
+    flex: 1;
+    background: var(--page-background);
+}
+
+.app-footer {
+    background: #ffffff;
+    border-top: 1px solid var(--border);
+    padding: 18px 24px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.app-footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+@media (max-width: 767px) {
+    .app-header {
+        padding: 10px 16px;
+    }
+
+    .app-footer-inner {
+        justify-content: center;
+        text-align: center;
+    }
+}

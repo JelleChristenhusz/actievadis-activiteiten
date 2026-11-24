@@ -1,0 +1,246 @@
+@page "/"
+@rendermode InteractiveServer
+@layout UI.Components.Layout.AppLayout
+@using System.Globalization
+@using Shared.DTOs
+@using UI.Components.Activities
+@using UI.Service
+@inject JwtTokenStore TokenStore
+@inject IActivityApiService ActivityApiService
+@inject ILogger<Home> Logger
+
+@*
+    Three versions of the home page:
+    - visitor (not logged in): what Actievadis is and what is coming up; visitors can register as a guest
+    - employee: what is coming up soon
+    - administrator: a short overview of the offer, with shortcuts for managing it
+    Until we know who is visiting, no buttons are shown, so a login button never appears for someone already logged in.
+*@
+
+<PageTitle>Actievadis</PageTitle>
+
+<section class="hero">
+    <div class="hero-inner">
+        @if (!loaded)
+        {
+            <p class="hero-eyebrow">Actievadis</p>
+            <h1>Samen meer beleven met je collega's</h1>
+        }
+        else if (user is null)
+        {
+            <p class="hero-eyebrow">Actievadis</p>
+            <h1>Samen meer beleven met je collega's</h1>
+            <p class="hero-text">Van pizza-avond tot teamuitje: alle activiteiten van Covadis op één plek. Doe mee als gast; je hebt geen account nodig.</p>
+
+            <div class="hero-actions">
+                <a class="btn-brand" href="/activities">Bekijk activiteiten</a>
+            </div>
+        }
+        else if (IsAdministrator)
+        {
+            <p class="hero-eyebrow">Beheerder</p>
+            <h1>Welkom terug, @FirstName(user.Name)!</h1>
+            <p class="hero-text">Hier zie je in één oogopslag hoe het aanbod ervoor staat. Zet een nieuwe activiteit klaar of ruim op wat niet meer doorgaat.</p>
+
+            <div class="hero-actions">
+                <a class="btn-brand" href="/activiteit-aanmaken">+ Activiteit aanmaken</a>
+                <a class="btn-hero-secondary" href="/activities">Activiteiten beheren</a>
+            </div>
+        }
+        else
+        {
+            <p class="hero-eyebrow">Actievadis</p>
+            <h1>Welkom terug, @FirstName(user.Name)!</h1>
+            <p class="hero-text">Zin in iets leuks met je collega's? Hieronder zie je wat er binnenkort op de planning staat.</p>
+
+            <div class="hero-actions">
+                <a class="btn-brand" href="/activities">Bekijk alle activiteiten</a>
+            </div>
+        }
+    </div>
+</section>
+
+<div class="home-content">
+
+    @if (loaded && user is not null && IsAdministrator && activities is not null)
+    {
+        <section class="home-section" aria-labelledby="overview-title">
+            <h2 id="overview-title">Overzicht</h2>
+
+            <div class="stat-grid">
+                <a class="stat-card" href="/activities">
+                    <span class="stat-number">@CurrentActivities.Count</span>
+                    <span class="stat-label">Gepland</span>
+                </a>
+                <a class="stat-card" href="/activities">
+                    <span class="stat-number">@TotalRegistrations</span>
+                    <span class="stat-label">Aanmeldingen</span>
+                </a>
+                <a class="stat-card muted" href="/activities">
+                    <span class="stat-number">@FinishedCount</span>
+                    <span class="stat-label">Afgelopen</span>
+                </a>
+            </div>
+        </section>
+    }
+
+    @* Everyone sees what is coming up, visitors without an account included. *@
+    @if (loaded)
+    {
+        <section class="home-section" aria-labelledby="upcoming-title">
+            <div class="section-header">
+                <h2 id="upcoming-title">Binnenkort</h2>
+                <a class="section-link" href="/activities">Alle activiteiten &rarr;</a>
+            </div>
+
+            @if (activities is null)
+            {
+                <p class="state-message"><em>Activiteiten worden geladen...</em></p>
+            }
+            else if (Upcoming.Count == 0)
+            {
+                <div class="empty-card">
+                    Er staan op dit moment geen activiteiten gepland.
+                    @if (IsAdministrator)
+                    {
+                        <a href="/activiteit-aanmaken">Zet er een klaar.</a>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="upcoming-grid">
+                    @foreach (var activity in Upcoming)
+                    {
+                        <a class="upcoming-card" href="/activities/@activity.Id">
+                            <span class="upcoming-date">
+                                <span class="upcoming-day">@activity.StartTime.ToString("dd", DutchCulture)</span>
+                                <span class="upcoming-month">@activity.StartTime.ToString("MMM", DutchCulture)</span>
+                            </span>
+                            <span class="upcoming-info">
+                                <span class="upcoming-name">@activity.Name</span>
+                                <span class="upcoming-details">@activity.StartTime.ToString("dddd HH:mm", DutchCulture) &middot; @activity.Location</span>
+                                <span class="upcoming-tags">
+                                    <span class="upcoming-cost">@FormatCost(activity.Cost)</span>
+                                    @if (activity.IncludesFood)
+                                    {
+                                        <span class="upcoming-food">Inclusief eten</span>
+                                    }
+                                    @if (activity.MaxParticipants is int maximum && activity.RegistrationCount >= maximum)
+                                    {
+                                        <span class="upcoming-full">Vol</span>
+                                    }
+                                </span>
+                            </span>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+    }
+
+    @if (loaded && user is null)
+    {
+        <section class="home-section" aria-labelledby="features-title">
+            <h2 id="features-title">Wat kun je met Actievadis?</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                    </span>
+                    <h3>Ontdek activiteiten</h3>
+                    <p>Zie in één oogopslag wat er gepland staat, met de eerstvolgende activiteit bovenaan.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                    </span>
+                    <h3>Weet wat je kunt verwachten</h3>
+                    <p>Kosten, eten, locatie en benodigdheden staan er meteen bij. Geen verrassingen.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="10" cy="7" r="4" /><path d="M21 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                    </span>
+                    <h3>Samen met je team</h3>
+                    <p>Zie hoeveel plekken er zijn en hoeveel deelnemers er minimaal nodig zijn.</p>
+                </div>
+            </div>
+        </section>
+    }
+
+</div>
+
+@code {
+    private static readonly CultureInfo DutchCulture = new("nl-NL");
+
+    private LoginResponse? user;
+    private bool loaded;
+    private DateTime now = DateTime.Now;
+
+    // null = still loading. Administrators also receive finished activities.
+    private IReadOnlyList<ActivityDto>? activities;
+
+    private bool IsAdministrator => user?.IsAdministrator() == true;
+
+    private List<ActivityDto> CurrentActivities => (activities ?? [])
+        .Where(activity => activity.GetStatus(now) == ActivityStatus.Current)
+        .OrderBy(activity => activity.StartTime)
+        .ToList();
+
+    private List<ActivityDto> Upcoming => CurrentActivities.Take(3).ToList();
+
+    private int TotalRegistrations => CurrentActivities.Sum(activity => activity.RegistrationCount);
+
+    private int FinishedCount => (activities ?? []).Count(activity => activity.GetStatus(now) == ActivityStatus.Finished);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The login session lives in the browser, so it can only be read after the first render.
+        if (!firstRender)
+            return;
+
+        user = await TokenStore.GetSessionAsync();
+        loaded = true;
+        StateHasChanged();
+
+        await LoadActivitiesAsync();
+    }
+
+    private async Task LoadActivitiesAsync()
+    {
+        try
+        {
+            now = DateTime.Now;
+            activities = await ActivityApiService.GetAllActivitiesAsync();
+        }
+        catch (NotLoggedInException)
+        {
+            // Session expired in the meantime: show the page as for a visitor.
+            await TokenStore.ClearTokenAsync();
+            user = null;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not load the activities for the home page.");
+            activities = Array.Empty<ActivityDto>();
+        }
+
+        StateHasChanged();
+    }
+
+    private static string FirstName(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts[0] : name;
+    }
+
+    // 0 -> "Gratis", 3.5 -> "€ 3,50"
+    private static string FormatCost(decimal cost)
+    {
+        return cost == 0 ? "Gratis" : cost.ToString("C", DutchCulture);
+    }
+}

@@ -1,0 +1,5 @@
+# Activiteitencontroles
+
+Voer uit met `dotnet run --project Tests/Tests.csproj`. De controles voor gebruikers (vaste functies waarbij Facilitair automatisch beheerder is, gebruikers wijzigen, de laatste beheerder beschermen en zacht verwijderen) staan in `UserChecks.cs`, die voor gasten zonder account (inschrijven, meetellen voor het maximum, uitschrijven met e-mail en code, de e-mails) in `VisitorChecks.cs`.
+
+De controles gebruiken een tijdelijke SQLite-database en verwijderen die na afloop. Ze controleren wijzigen, verwijderen met inschrijvingen, deelnemersaantallen, dubbele inschrijvingen, volle en voorbije activiteiten, ontbrekende activiteiten en de beheerdersrestricties op de API-acties. Ook +1-toestemming, dat een +1 niet meetelt voor het maximum, inschrijven als beheerder en het bewaren van de +1-keuze worden gecontroleerd. Daarnaast het achteraf aanpassen van een inschrijving (+1 en opmerking), uitschrijven en opnieuw inschrijven, en dat beide niet meer kunnen nadat de activiteit is begonnen. De database wordt met de echte migraties opgebouwd.

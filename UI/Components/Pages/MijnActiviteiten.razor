@@ -1,0 +1,389 @@
+@page "/mijn-activiteiten"
+@rendermode InteractiveServer
+@layout UI.Components.Layout.AppLayout
+@using System.Globalization
+@using Shared.DTOs
+@using UI.Service
+@inject IActivityApiService ActivityApiService
+@inject JwtTokenStore TokenStore
+@inject NavigationManager Navigation
+@inject ILogger<MijnActiviteiten> Logger
+
+<PageTitle>Mijn activiteiten</PageTitle>
+
+<div class="my-activities-page">
+    <header class="page-header">
+        <div>
+            <h1>Mijn activiteiten</h1>
+            <p>Hier staan de activiteiten waarvoor je bent ingeschreven.</p>
+        </div>
+        <a class="all-activities-link" href="/activities">Alle activiteiten bekijken</a>
+    </header>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success" role="status">@successMessage</div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+    else if (activities is null)
+    {
+        <p class="state-message"><em>Je activiteiten worden geladen...</em></p>
+    }
+    else if (activities.Count == 0)
+    {
+        <div class="empty-state" role="status">
+            <h2>Nog geen inschrijvingen</h2>
+            <p>Je bent nog niet ingeschreven voor een activiteit.</p>
+            <a href="/activities">Bekijk alle activiteiten</a>
+        </div>
+    }
+    else
+    {
+        @if (actionError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@actionError</div>
+        }
+        <div class="my-activity-list">
+            @foreach (var activity in activities)
+            {
+                <article class="my-activity-card">
+                    <div class="activity-date">
+                        <span>@activity.StartTime.ToString("dd", DutchCulture)</span>
+                        <small>@activity.StartTime.ToString("MMM", DutchCulture)</small>
+                    </div>
+                    <div class="activity-details">
+                        <h2>@activity.Name</h2>
+                        <p class="activity-time">@FormatPeriod(activity)</p>
+                        <p class="activity-location">@activity.Location</p>
+                        @if (!string.IsNullOrWhiteSpace(activity.Description))
+                        {
+                            <p class="activity-description">@activity.Description</p>
+                        }
+                        <div class="activity-links">
+                            <a class="activity-details-link" href="/activities/@activity.Id">Details bekijken</a>
+
+                            @* Unregistering is possible until the activity starts. *@
+                            @if (activity.StartTime > DateTime.Now)
+                            {
+                                @if (confirmingId == activity.Id)
+                                {
+                                    <span class="confirm-text">Weet je het zeker?</span>
+                                    <button class="unregister-button" type="button" disabled="@busy" @onclick="() => UnregisterAsync(activity)">
+                                        @(busy ? "Bezig..." : "Ja, uitschrijven")
+                                    </button>
+                                    <button class="cancel-button" type="button" disabled="@busy" @onclick="() => confirmingId = null">Annuleren</button>
+                                }
+                                else
+                                {
+                                    <button class="unregister-button" type="button" disabled="@busy" @onclick="() => confirmingId = activity.Id">Uitschrijven</button>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="activity-cost">@FormatCost(activity.Cost)</div>
+                </article>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .my-activities-page {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 24px 64px;
+    }
+
+    .page-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        margin-bottom: 26px;
+    }
+
+        .page-header h1 {
+            color: #1d1d3b;
+            font-size: 2.1rem;
+            margin: 0 0 6px;
+        }
+
+        .page-header p,
+        .state-message {
+            color: #6c757d;
+            margin: 0;
+        }
+
+    .all-activities-link,
+    .empty-state a {
+        color: #1d1d3b;
+        font-weight: 600;
+    }
+
+    .my-activity-list {
+        display: grid;
+        gap: 16px;
+    }
+
+    .my-activity-card {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr) auto;
+        gap: 20px;
+        align-items: center;
+        background: #fff;
+        border: 1px solid #e9e9ef;
+        border-radius: 14px;
+        padding: 20px;
+        box-shadow: 0 4px 16px rgba(29, 29, 59, 0.06);
+    }
+
+    .activity-date {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 70px;
+        border-radius: 10px;
+        background: #f5a623;
+        color: #1d1d3b;
+    }
+
+        .activity-date span {
+            font-size: 1.65rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .activity-date small {
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+    .activity-details h2 {
+        margin: 0 0 5px;
+        color: #1d1d3b;
+        font-size: 1.2rem;
+    }
+
+    .activity-details p {
+        margin: 0 0 4px;
+    }
+
+    .activity-time {
+        color: #43436b;
+        font-weight: 600;
+    }
+
+    .activity-location,
+    .activity-description {
+        color: #6c757d;
+    }
+
+    .activity-description {
+        margin-top: 10px !important;
+        white-space: pre-line;
+    }
+
+    .activity-links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .confirm-text {
+        color: #43436b;
+        font-size: .85rem;
+        font-weight: 600;
+    }
+
+    .unregister-button,
+    .cancel-button {
+        padding: 8px 13px;
+        border-radius: 9px;
+        font-size: .85rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .unregister-button {
+        background: #fff;
+        color: #b43b45;
+        border: 1px solid #edcdd1;
+    }
+
+        .unregister-button:hover:not(:disabled) {
+            background: #fff0f1;
+            color: #9b2630;
+        }
+
+    .cancel-button {
+        background: transparent;
+        color: #43436b;
+        border: 1px solid #e2e2ee;
+    }
+
+        .cancel-button:hover:not(:disabled) {
+            background: #f0f0f7;
+        }
+
+    .unregister-button:disabled,
+    .cancel-button:disabled {
+        opacity: .6;
+        cursor: wait;
+    }
+
+    .unregister-button:focus-visible,
+    .cancel-button:focus-visible {
+        outline: 3px solid #f5a623;
+        outline-offset: 3px;
+    }
+
+    .activity-details-link {
+        display: inline-flex;
+        align-items: center;
+        align-self: flex-start;
+        padding: 8px 13px;
+        background: #f0f0f7;
+        color: #43436b;
+        border: 1px solid #e2e2ee;
+        border-radius: 9px;
+        text-decoration: none;
+        font-size: .85rem;
+        font-weight: 600;
+    }
+
+        .activity-details-link:hover {
+            background: #e5e5f0;
+            border-color: #c7c7dc;
+            color: #1d1d3b;
+        }
+
+        .activity-details-link:focus-visible {
+            outline: 3px solid #f5a623;
+            outline-offset: 3px;
+        }
+
+    .activity-cost {
+        border-radius: 999px;
+        background: #ececf4;
+        color: #43436b;
+        font-weight: 700;
+        padding: 7px 12px;
+        white-space: nowrap;
+    }
+
+    .empty-state {
+        padding: 36px;
+        background: #fff;
+        border: 1px dashed #c8c8d4;
+        border-radius: 14px;
+        text-align: center;
+    }
+
+        .empty-state h2 {
+            color: #1d1d3b;
+            font-size: 1.3rem;
+        }
+
+    @@media (max-width: 575px) {
+        .my-activities-page {
+            padding: 24px 14px 40px;
+        }
+
+        .my-activity-card {
+            grid-template-columns: 62px minmax(0, 1fr);
+            gap: 14px;
+        }
+
+        .activity-cost {
+            grid-column: 2;
+            justify-self: start;
+        }
+    }
+</style>
+
+@code {
+    private static readonly CultureInfo DutchCulture = new("nl-NL");
+    private IReadOnlyList<ActivityDto>? activities;
+    private string? errorMessage;
+    private string? successMessage;
+    private string? actionError;
+    private Guid? confirmingId;
+    private bool busy;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            activities = await ActivityApiService.GetMyActivitiesAsync();
+        }
+        catch (NotLoggedInException)
+        {
+            await TokenStore.ClearTokenAsync();
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogError(ex, "Could not load registered activities from the API.");
+            errorMessage = "Je activiteiten konden niet worden geladen. Controleer of de API draait en probeer het opnieuw.";
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task UnregisterAsync(ActivityDto activity)
+    {
+        if (busy)
+            return;
+
+        busy = true;
+        successMessage = null;
+        actionError = null;
+
+        try
+        {
+            await ActivityApiService.UnregisterAsync(activity.Id);
+            activities = activities!.Where(item => item.Id != activity.Id).ToList();
+            confirmingId = null;
+            successMessage = $"Je bent uitgeschreven voor {activity.Name}.";
+        }
+        catch (NotLoggedInException)
+        {
+            await TokenStore.ClearTokenAsync();
+            Navigation.NavigateTo("/", forceLoad: false);
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogError(ex, "Could not unregister from activity {ActivityId}.", activity.Id);
+            actionError = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string FormatPeriod(ActivityDto activity)
+    {
+        const string dateAndTime = "dddd d MMMM yyyy, HH:mm";
+        var start = activity.StartTime.ToString(dateAndTime, DutchCulture);
+        var end = activity.StartTime.Date == activity.EndTime.Date
+            ? activity.EndTime.ToString("HH:mm", DutchCulture)
+            : activity.EndTime.ToString(dateAndTime, DutchCulture);
+
+        return $"{start} tot {end}";
+    }
+
+    private static string FormatCost(decimal cost) => cost == 0 ? "Gratis" : cost.ToString("C", DutchCulture);
+}

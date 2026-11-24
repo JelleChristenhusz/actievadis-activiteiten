@@ -1,0 +1,80 @@
+@page "/activities/{Id:guid}/edit"
+@rendermode InteractiveServer
+@layout UI.Components.Layout.AppLayout
+@using Shared.DTOs
+@using UI.Service
+@inject IActivityApiService Api
+@inject JwtTokenStore TokenStore
+@inject NavigationManager Navigation
+
+<PageTitle>Activiteit wijzigen</PageTitle>
+<div class="activity-workspace">
+    <a class="activity-back" href="/activities/@Id"> Terug naar details</a>
+    <header class="activity-workspace-header"><div><span class="activity-eyebrow">Beheer</span><h1>Activiteit wijzigen</h1></div><p>Pas de gegevens aan en sla je wijzigingen op.</p></header>
+    @if (error is not null) { <p class="activity-notice activity-notice-error" role="alert">@error</p> }
+    @if (!loaded) { <p>Gegevens worden geladen...</p> }
+    else if (!administrator) { <p>Alleen beheerders kunnen activiteiten wijzigen.</p> }
+    else if (model is not null)
+    {
+        <EditForm Model="model" OnValidSubmit="Save" FormName="ActivityEdit" class="activity-editor">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset disabled="@busy" class="activity-panel activity-edit-grid">
+                <legend class="visually-hidden">Activiteitgegevens</legend>
+                <div class="activity-field"><label for="name">Naam</label><InputText id="name" class="form-control" @bind-Value="model.Name" /></div>
+                <div class="activity-field"><label for="location">Locatie</label><InputText id="location" class="form-control" @bind-Value="model.Location" /></div>
+                <div class="activity-field"><label for="image">Afbeelding <span>URL, optioneel</span></label><InputText id="image" class="form-control" @bind-Value="model.ImageUrl" /></div>
+                <div class="activity-field"><label for="start">Begintijd</label><InputDate id="start" Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="model.StartTime" /></div>
+                <div class="activity-field"><label for="end">Eindtijd</label><InputDate id="end" Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="model.EndTime" /></div>
+                <div class="activity-field"><label for="cost">Kosten <span>€</span></label><InputNumber id="cost" class="form-control" @bind-Value="model.Cost" /></div>
+                <div class="activity-field"><label for="minimum">Minimum deelnemers <span>optioneel</span></label><InputNumber id="minimum" class="form-control" @bind-Value="model.MinParticipants" /></div>
+                <div class="activity-field"><label for="maximum">Maximum deelnemers <span>optioneel</span></label><InputNumber id="maximum" class="form-control" @bind-Value="model.MaxParticipants" /></div>
+                <div class="activity-field"><label for="food">Eten</label><label class="activity-check"><InputCheckbox id="food" @bind-Value="model.IncludesFood" /> Eten is inbegrepen</label><label class="activity-check"><InputCheckbox @bind-Value="model.AllowsGuest" /> +1 toegestaan</label></div>
+                <div class="activity-field activity-description-field"><label for="description">Omschrijving</label><InputTextArea id="description" class="form-control" rows="3" @bind-Value="model.Description" /></div>
+                <div class="activity-field"><label for="requirements">Benodigdheden <span>optioneel</span></label><InputTextArea id="requirements" class="form-control" rows="3" @bind-Value="model.Requirements" /></div>
+            </fieldset>
+            <footer class="activity-action-bar">
+                <p>Je wijzigingen worden zichtbaar voor alle gebruikers.</p>
+                <div class="activity-actions">
+                    <a class="activity-button activity-button-secondary" href="/activities/@Id">Annuleren</a>
+                    <button type="submit" disabled="@busy" class="activity-button activity-button-primary">@(busy ? "Opslaan…" : "Wijzigingen opslaan") </button>
+                </div>
+            </footer>
+        </EditForm>
+    }
+</div>
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private ActivityInputDto? model;
+    private bool administrator, loaded, busy;
+    private Guid? loadedId;
+    private string? error;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (loadedId == Id) return;
+        loadedId = Id; loaded = false; model = null; error = null;
+        try
+        {
+            administrator = await TokenStore.IsAdministratorAsync();
+            if (administrator)
+            {
+                var a = await Api.GetActivityAsync(Id);
+                model = new() { Name = a.Name, Location = a.Location, Description = a.Description,
+                    StartTime = a.StartTime, EndTime = a.EndTime, Cost = a.Cost, IncludesFood = a.IncludesFood, AllowsGuest = a.AllowsGuest,
+                    MinParticipants = a.MinParticipants, MaxParticipants = a.MaxParticipants,
+                    ImageUrl = a.ImageUrl, Requirements = a.Requirements };
+            }
+        }
+        catch (NotLoggedInException) { Navigation.NavigateTo("/"); }
+        catch (HttpRequestException ex) { error = ex.Message; }
+        loaded = true; StateHasChanged();
+    }
+    private async Task Save()
+    {
+        if (busy || model is null || !administrator) return;
+        busy = true; error = null;
+        try { await Api.UpdateActivityAsync(Id, model); Navigation.NavigateTo($"/activities/{Id}"); }
+        catch (NotLoggedInException) { Navigation.NavigateTo("/"); }
+        catch (HttpRequestException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

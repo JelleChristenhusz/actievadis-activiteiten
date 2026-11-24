@@ -1,0 +1,217 @@
+@page "/activities"
+@rendermode InteractiveServer
+@layout UI.Components.Layout.AppLayout
+@using System.Net
+@using Shared.DTOs
+@using UI.Components.Activities
+@using UI.Service
+@inject IActivityApiService ActivityApiService
+@inject JwtTokenStore TokenStore
+@inject NavigationManager Navigation
+@inject ILogger<ActivityList> Logger
+
+<PageTitle>Activiteiten</PageTitle>
+
+<div class="activities-page">
+
+    <div class="page-header">
+        <div>
+            <h1>Activiteiten</h1>
+            @if (IsAdministrator)
+            {
+                <p>Beheer het aanbod. Afgelopen activiteiten zie alleen jij als beheerder, onderaan de pagina.</p>
+            }
+            else if (user is null)
+            {
+                <p>Bekijk het aanbod en doe mee. Je hebt geen account nodig: kies een activiteit en schrijf je in als gast.</p>
+            }
+            else
+            {
+                <p>Bekijk het aanbod en zie meteen wanneer het is, wat het kost en wat je moet meenemen.</p>
+            }
+        </div>
+
+        @if (IsAdministrator)
+        {
+            <a class="btn-brand" href="/activiteit-aanmaken">+ Nieuwe activiteit</a>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(NieuweActiviteit))
+    {
+        <div class="saved-message" role="status">
+            Activiteit <strong>@NieuweActiviteit</strong> is opgeslagen.
+        </div>
+    }
+
+    @if (statusMessage is not null)
+    {
+        <div class="saved-message" role="status">@statusMessage</div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (activities is null)
+    {
+        @if (errorMessage is null)
+        {
+            <p class="state-message"><em>Activiteiten worden geladen...</em></p>
+        }
+    }
+    else
+    {
+        <section class="activity-section" aria-labelledby="current-title">
+            @if (IsAdministrator)
+            {
+                <h2 id="current-title" class="section-title">
+                    Huidige activiteiten <span class="section-count">@CurrentActivities.Count</span>
+                </h2>
+            }
+            else
+            {
+                <h2 id="current-title" class="visually-hidden">Activiteiten</h2>
+            }
+
+            @if (CurrentActivities.Count == 0)
+            {
+                <div class="empty-card">Er staan op dit moment geen activiteiten gepland.</div>
+            }
+            else
+            {
+                <div class="activity-grid">
+                    @foreach (var activity in CurrentActivities)
+                    {
+                        <ActivityCard Activity="activity"
+                                      Status="ActivityStatus.Current"
+                                      CanDelete="IsAdministrator"
+                                      Busy="deletingId == activity.Id"
+                                      OnDelete="DeleteAsync" />
+                    }
+                </div>
+            }
+        </section>
+
+        @if (IsAdministrator)
+        {
+            <section class="activity-section archive" aria-labelledby="archive-title">
+                <h2 id="archive-title" class="section-title">
+                    Afgelopen activiteiten <span class="section-count">@ArchivedActivities.Count</span>
+                </h2>
+                <p class="section-intro">Deze activiteiten zien gewone gebruikers niet meer. De meest recente staat bovenaan.</p>
+
+                @if (ArchivedActivities.Count == 0)
+                {
+                    <div class="empty-card">Nog geen afgelopen activiteiten.</div>
+                }
+                else
+                {
+                    <div class="activity-grid">
+                        @foreach (var activity in ArchivedActivities)
+                        {
+                            <ActivityCard Activity="activity" Status="activity.GetStatus(now)" />
+                        }
+                    </div>
+                }
+            </section>
+        }
+    }
+
+</div>
+
+@code {
+    // Filled in after saving a new activity: /activities?nieuw=Naam
+    [SupplyParameterFromQuery(Name = "nieuw")]
+    private string? NieuweActiviteit { get; set; }
+
+    private LoginResponse? user;
+    private DateTime now = DateTime.Now;
+
+    // null = still loading
+    private IReadOnlyList<ActivityDto>? activities;
+    private string? errorMessage;
+    private string? statusMessage;
+    private Guid? deletingId;
+
+    private bool IsAdministrator => user?.IsAdministrator() == true;
+
+    // Soonest first. For normal users the API already leaves out finished and deleted activities.
+    private List<ActivityDto> CurrentActivities => (activities ?? [])
+        .Where(activity => activity.GetStatus(now) == ActivityStatus.Current)
+        .OrderBy(activity => activity.StartTime)
+        .ToList();
+
+    // Most recent first, so the administrator sees what just happened at the top.
+    private List<ActivityDto> ArchivedActivities => (activities ?? [])
+        .Where(activity => activity.GetStatus(now) != ActivityStatus.Current)
+        .OrderByDescending(activity => activity.StartTime)
+        .ToList();
+
+    // Loading happens after the first render, because only then the login session can be read from the browser.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        // Visitors without an account may look too: they see the same current activities as employees.
+        user = await TokenStore.GetSessionAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            now = DateTime.Now;
+            activities = await ActivityApiService.GetAllActivitiesAsync();
+            errorMessage = null;
+        }
+        catch (NotLoggedInException)
+        {
+            await TokenStore.ClearTokenAsync();
+            Navigation.NavigateTo("/inloggen");
+            return;
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogError(ex, "Could not load activities from the API.");
+            errorMessage = "De activiteiten konden niet worden geladen. Controleer of de API draait en probeer het opnieuw.";
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task DeleteAsync(ActivityDto activity)
+    {
+        deletingId = activity.Id;
+        statusMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            await ActivityApiService.DeleteActivityAsync(activity.Id);
+            statusMessage = $"Activiteit '{activity.Name}' is verwijderd.";
+            await LoadAsync();
+        }
+        catch (NotLoggedInException)
+        {
+            await TokenStore.ClearTokenAsync();
+            Navigation.NavigateTo("/inloggen");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            errorMessage = "Alleen een beheerder mag activiteiten verwijderen.";
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogError(ex, "Could not delete activity {ActivityId}.", activity.Id);
+            errorMessage = "De activiteit kon niet worden verwijderd. Probeer het opnieuw.";
+        }
+        finally
+        {
+            deletingId = null;
+        }
+    }
+}

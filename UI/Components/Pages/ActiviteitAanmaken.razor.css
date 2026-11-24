@@ -1,0 +1,175 @@
+/*
+ * ::deep is needed for everything Blazor draws itself (InputText, InputNumber,
+ * InputCheckbox, ValidationMessage). Without it this styling does not reach those elements.
+ */
+
+.activity-page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+}
+
+.page-header {
+    margin-bottom: 26px;
+}
+
+    .page-header h1 {
+        font-size: 2.1rem;
+        font-weight: 700;
+        color: #1d1d3b;
+        margin-bottom: 6px;
+    }
+
+    .page-header p {
+        color: #6c757d;
+        margin: 0;
+    }
+
+.activity-card {
+    background: #ffffff;
+    border: 1px solid #e9e9ef;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 6px 20px rgba(29, 29, 59, 0.07);
+}
+
+.form-section {
+    padding-bottom: 28px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid #f0f0f5;
+}
+
+    .form-section:last-of-type {
+        border-bottom: none;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+    }
+
+    .form-section h2 {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #8a8a9c;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 20px;
+    }
+
+.form-label {
+    font-weight: 600;
+    color: #2c2c44;
+    margin-bottom: 7px;
+}
+
+.activity-page ::deep .form-control {
+    min-height: 46px;
+    border-radius: 10px;
+    border-color: #dcdce6;
+}
+
+    .activity-page ::deep .form-control:focus {
+        border-color: #f5a623;
+        box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.25);
+    }
+
+.input-group-text {
+    border-radius: 10px 0 0 10px;
+    background: #f5f6f8;
+    border-color: #dcdce6;
+    color: #43436b;
+    font-weight: 600;
+}
+
+.activity-page ::deep .description-input {
+    min-height: 130px;
+    resize: vertical;
+}
+
+.food-option {
+    margin-top: 24px;
+    padding: 16px 18px;
+    background: #f5f6f8;
+    border: 1px solid #ececf4;
+    border-radius: 12px;
+}
+
+.activity-page ::deep .form-check-input:checked {
+    background-color: #f5a623;
+    border-color: #f5a623;
+}
+
+.optional-label {
+    color: #a3a3b4;
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+
+.submit-button {
+    min-width: 200px;
+    padding: 12px 22px;
+    font-weight: 700;
+    border-radius: 10px;
+    background: #f5a623;
+    border-color: #f5a623;
+    color: #1d1d3b;
+}
+
+    .submit-button:hover,
+    .submit-button:focus {
+        background: #e2941a;
+        border-color: #e2941a;
+        color: #1d1d3b;
+    }
+
+.validation-summary {
+    margin-bottom: 20px;
+}
+
+    .validation-summary ::deep ul {
+        background: #fdecec;
+        border: 1px solid #f5c2c2;
+        border-radius: 10px;
+        color: #922;
+        list-style: none;
+        margin: 0;
+        padding: 14px 18px;
+    }
+
+    .validation-summary ::deep ul:empty {
+        display: none;
+    }
+
+.activity-page ::deep .validation-message {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.875rem;
+    color: #dc3545;
+}
+
+@media (max-width: 768px) {
+    .activity-page {
+        padding: 24px 14px 40px;
+    }
+
+    .activity-card {
+        padding: 22px 18px;
+    }
+
+    .form-actions {
+        display: block;
+    }
+
+    .submit-button {
+        width: 100%;
+    }
+    .required-star {
+        color: #dc3545;
+        font-weight: 700;
+    }
+}

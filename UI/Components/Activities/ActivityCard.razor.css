@@ -1,0 +1,214 @@
+.activity-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+    .activity-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    /* Finished activities look calmer, so current ones stand out. */
+    .activity-card.archived {
+        background: #fafafc;
+    }
+
+        .activity-card.archived .activity-image {
+            filter: grayscale(0.7);
+            opacity: 0.8;
+        }
+
+.activity-image {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    background: #f1f1f6;
+}
+
+/* Without a photo the card still gets a calm brand-coloured header. */
+.activity-image-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-light));
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.activity-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 20px 22px 24px;
+}
+
+.status-badge {
+    align-self: flex-start;
+    margin-bottom: 10px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.status-finished {
+    background: #ececf0;
+    color: #55556b;
+}
+
+.activity-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.activity-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.badge {
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.badge-cost {
+    background: var(--brand-orange);
+    color: var(--brand-navy);
+}
+
+.badge-food {
+    background: #e8f6ee;
+    color: #1c5b3a;
+}
+
+.badge-full {
+    background: #fde8ea;
+    color: #9b2630;
+}
+
+.activity-meta {
+    display: grid;
+    grid-template-columns: 104px 1fr;
+    gap: 10px 14px;
+    margin: 0 0 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f5;
+    font-size: 0.92rem;
+}
+
+    .activity-meta dt {
+        color: #8a8a9c;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        padding-top: 2px;
+    }
+
+    .activity-meta dd {
+        margin: 0;
+        color: var(--text);
+    }
+
+.activity-description {
+    margin: 0;
+    color: #4a4a63;
+    line-height: 1.55;
+    white-space: pre-line;
+}
+
+    .activity-description.empty {
+        color: #a3a3b4;
+    }
+
+/* ---------- Buttons at the bottom of the card ---------- */
+.card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 18px;
+}
+
+    .card-actions .btn-outline-brand {
+        padding: 9px 16px;
+        font-size: 0.9rem;
+    }
+
+.confirm-text {
+    flex-basis: 100%;
+}
+
+.confirm-text {
+    margin: 0 0 10px;
+    font-weight: 600;
+    color: #9b1c1c;
+}
+
+.confirm-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-danger-outline,
+.btn-danger-solid {
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-danger-outline {
+    background: transparent;
+    color: #b42318;
+    border: 1px solid #f1b8b4;
+}
+
+    .btn-danger-outline:hover {
+        background: #fdecec;
+    }
+
+.btn-danger-solid {
+    background: #c62828;
+    color: #ffffff;
+    border: 1px solid #c62828;
+}
+
+    .btn-danger-solid:hover:not(:disabled) {
+        background: #a61f1f;
+    }
+
+    .btn-danger-solid:disabled {
+        opacity: 0.7;
+        cursor: wait;
+    }
+
+@media (max-width: 767px) {
+    .activity-meta {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+
+        .activity-meta dd {
+            margin-bottom: 10px;
+        }
+
+    .confirm-buttons button {
+        flex: 1;
+    }
+}

@@ -1,0 +1,202 @@
+.app-nav {
+    display: flex;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.menu {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-left: 24px;
+}
+
+.menu-links,
+.menu-account {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ::deep is needed because NavLink renders the link itself. */
+.menu ::deep .menu-link {
+    color: #d7d7e4;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    padding: 9px 12px;
+    border-radius: 9px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+    .menu ::deep .menu-link:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .menu ::deep .menu-link.active {
+        color: var(--brand-navy);
+        background: var(--brand-orange);
+    }
+
+.menu ::deep .menu-login {
+    color: var(--brand-navy);
+    background: var(--brand-orange);
+    text-decoration: none;
+    font-weight: 700;
+    padding: 9px 18px;
+    border-radius: 9px;
+}
+
+    .menu ::deep .menu-login:hover {
+        background: var(--brand-orange-dark);
+    }
+
+.menu-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding-right: 6px;
+}
+
+.menu-user-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.menu-user-role {
+    color: #a9a9c4;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.menu-user-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--brand-orange);
+    color: var(--brand-navy);
+    font-weight: 800;
+}
+
+.menu-logout {
+    color: #ffffff;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 8px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+    .menu-logout:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.6);
+    }
+
+/* ---------- Hamburger button (mobile only) ---------- */
+.menu-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 0 11px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.menu-toggle-bar {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: #ffffff;
+    border-radius: 2px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* The three bars turn into a cross while the menu is open. */
+.menu-toggle.open .menu-toggle-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.menu-toggle.open .menu-toggle-bar:nth-child(2) {
+    opacity: 0;
+}
+
+.menu-toggle.open .menu-toggle-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Below 1100px the full menu no longer fits next to the logo, so it folds away behind the hamburger. */
+@media (max-width: 1099px) {
+    .menu-toggle {
+        display: flex;
+    }
+
+    /* The folded-out menu covers the full width below the header bar. */
+    .menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin: 0;
+        padding: 12px 16px 18px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        background: var(--brand-navy);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.25);
+    }
+
+        .menu.open {
+            display: flex;
+        }
+
+    .menu-links,
+    .menu-account {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .menu ::deep .menu-link,
+    .menu ::deep .menu-login {
+        padding: 12px 14px;
+        font-size: 1rem;
+    }
+
+    .menu ::deep .menu-login {
+        text-align: center;
+    }
+
+    .menu-account {
+        padding-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .menu-user {
+        padding: 4px 14px 10px;
+    }
+
+    .menu-logout {
+        padding: 12px 14px;
+        font-size: 1rem;
+    }
+}

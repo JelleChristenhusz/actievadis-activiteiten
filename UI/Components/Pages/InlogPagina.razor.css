@@ -1,0 +1,92 @@
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 72px 16px;
+    min-height: 70vh;
+}
+
+.login-card {
+    width: min(440px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 36px 34px;
+    box-shadow: var(--shadow);
+    border-top: 5px solid var(--brand-orange);
+}
+
+.login-header {
+    margin-bottom: 26px;
+}
+
+    .login-header h1 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
+    .login-header p {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.5;
+    }
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+    .form-group label {
+        display: block;
+        margin-bottom: 7px;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+/* ::deep is needed because InputText renders the input itself. */
+.form-group ::deep .form-control {
+    min-height: 48px;
+    padding: 11px 14px;
+    border: 1px solid #dcdce6;
+    border-radius: 10px;
+}
+
+    .form-group ::deep .form-control:focus {
+        border-color: var(--brand-orange);
+        box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.25);
+    }
+
+.form-group ::deep .validation-message {
+    margin-top: 5px;
+    font-size: 0.875rem;
+}
+
+.login-error {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #fdecec;
+    border: 1px solid #f5c2c2;
+    color: #922;
+}
+
+.login-button {
+    width: 100%;
+    padding: 13px 20px;
+    font-size: 1rem;
+}
+
+    .login-button:disabled {
+        cursor: wait;
+        opacity: 0.7;
+    }
+
+@media (max-width: 767px) {
+    .login-page {
+        padding: 32px 16px;
+    }
+
+    .login-card {
+        padding: 28px 22px;
+    }
+}

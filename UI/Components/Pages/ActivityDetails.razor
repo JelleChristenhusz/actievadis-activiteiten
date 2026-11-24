@@ -1,0 +1,315 @@
+@page "/activities/{Id:guid}"
+@rendermode InteractiveServer
+@layout UI.Components.Layout.AppLayout
+@using Shared.DTOs
+@using UI.Service
+@using System.Globalization
+@using System.Linq
+@inject IActivityApiService Api
+@inject JwtTokenStore TokenStore
+@inject NavigationManager Navigation
+
+<PageTitle>Activiteitdetails</PageTitle>
+<div class="activity-workspace">
+    <a class="activity-back" href="/activities"> Terug naar activiteiten</a>
+    @if (error is not null && activity is null) { <div class="activity-notice activity-notice-error" role="alert">@error</div> }
+    @if (activity is null) { @if (error is null) { <p>Activiteit wordt geladen...</p> } }
+    else
+    {
+        <header class="activity-workspace-header">
+            <div><span class="activity-eyebrow">Activiteitdetails</span><h1>@activity.Name</h1></div>
+            <span class="activity-price">@(activity.Cost == 0 ? "Gratis" : activity.Cost.ToString("C", Dutch))</span>
+        </header>
+        <div class="activity-detail-grid">
+            <section class="activity-panel activity-story" aria-label="Omschrijving">
+                @if (!string.IsNullOrWhiteSpace(activity.ImageUrl)) { <img class="activity-detail-image" src="@activity.ImageUrl" alt="@activity.Name" /> }
+                <h2>Over deze activiteit</h2>
+                <p class="activity-detail-description">@activity.Description</p>
+                <div class="activity-requirements"><h2>Benodigdheden</h2><p>@(string.IsNullOrWhiteSpace(activity.Requirements) ? "Geen benodigdheden" : activity.Requirements)</p></div>
+            </section>
+            <section class="activity-panel" aria-label="Praktische informatie">
+                <h2>Praktische informatie</h2>
+                <dl class="activity-facts">
+                    <div><dt>Locatie</dt><dd>@activity.Location</dd></div>
+                    <div><dt>Begintijd</dt><dd>@activity.StartTime.ToString("f", Dutch)</dd></div>
+                    <div><dt>Eindtijd</dt><dd>@activity.EndTime.ToString("f", Dutch)</dd></div>
+                    <div><dt>Eten inbegrepen</dt><dd>@(activity.IncludesFood ? "Ja" : "Nee")</dd></div>
+                    <div><dt>+1 meenemen</dt><dd>@(activity.AllowsGuest ? "Toegestaan" : "Niet toegestaan")</dd></div>
+                    <div class="activity-participant-facts">
+                        <div><dt>Minimum</dt><dd>@(activity.MinParticipants?.ToString() ?? "Geen")</dd></div>
+                        <div><dt>Maximum</dt><dd>@(activity.MaxParticipants?.ToString() ?? "Geen")</dd></div>
+                        <div><dt>Ingeschreven</dt><dd>@activity.RegistrationCount</dd></div>
+                    </div>
+                </dl>
+            </section>
+        </div>
+        @if (administrator)
+        {
+            <section class="activity-panel activity-organizer-registrations" aria-labelledby="registrations-title">
+                <div class="activity-organizer-heading">
+                    <div><span class="activity-eyebrow">Organisator</span><h2 id="registrations-title">Inschrijvingen</h2></div>
+                    <span class="activity-registration-total">@OrganizerSummary</span>
+                </div>
+                @if (organizerRegistrations.Count == 0)
+                {
+                    <p class="activity-organizer-empty">Er zijn nog geen inschrijvingen voor deze activiteit.</p>
+                }
+                else
+                {
+                    <div class="activity-organizer-list">
+                        @foreach (var item in organizerRegistrations)
+                        {
+                            <article class="activity-organizer-registration">
+                                <div class="activity-organizer-registration-heading">
+                                    <strong>@item.ParticipantName@if (item.ParticipantDeleted) { <span class="activity-participant-deleted"> (account verwijderd)</span> }</strong>
+                                    <div class="activity-organizer-registration-meta">
+                                        @if (item.IsVisitor) { <span class="activity-visitor-badge">Gast</span> }
+                                        @if (item.BringsGuest) { <span class="activity-guest-badge">+1</span> }
+                                        <time datetime="@item.RegisteredAt.ToString("O")">@item.RegisteredAt.ToLocalTime().ToString("d MMM yyyy, HH:mm", Dutch)</time>
+                                    </div>
+                                </div>
+                                @if (item.IsVisitor)
+                                {
+                                    @* Visitors have no account, so the organiser gets their contact details here. *@
+                                    <p class="activity-organizer-contact">
+                                        <a href="mailto:@item.VisitorEmail">@item.VisitorEmail</a>
+                                        <span aria-hidden="true">·</span>
+                                        <a href="tel:@(item.VisitorPhone?.Replace(" ", ""))">@item.VisitorPhone</a>
+                                    </p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(item.Comment))
+                                {
+                                    <p class="activity-organizer-comment">@item.Comment</p>
+                                }
+                                else
+                                {
+                                    <p class="activity-organizer-no-comment">Geen opmerking</p>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+        }
+        @if (notice is not null) { <div class="activity-notice activity-notice-success" role="status">@notice</div> }
+        @if (error is not null) { <div class="activity-notice activity-notice-error" role="alert">@error</div> }
+        <footer class="activity-action-bar">
+            <div class="activity-registration">
+                @if (!loggedIn && visitorResult is not null)
+                {
+                    <div class="activity-visitor-done" role="status">
+                        <p class="activity-status">Je bent ingeschreven@(visitorBroughtGuest ? " met een +1" : "")!</p>
+                        <p>Je uitschrijfcode is:</p>
+                        <p class="activity-cancel-code">@visitorResult.CancellationCode</p>
+                        <p class="activity-registration-hint">Bewaar deze code goed. Wil je je uitschrijven? Dat kan op de pagina <a href="/uitschrijven">Uitschrijven</a> met je e-mailadres en deze code.</p>
+                    </div>
+                }
+                else if (!loggedIn)
+                {
+                    <EditForm Model="visitor" OnValidSubmit="RegisterVisitor" FormName="visitor-registration" class="activity-visitor-form">
+                        <DataAnnotationsValidator />
+                        <h2>Inschrijven als gast</h2>
+                        <p class="activity-registration-hint">Je hebt geen account nodig. Werk je bij Covadis? <a href="/inloggen">Log dan in</a>.</p>
+                        <div class="activity-visitor-fields">
+                            <div class="activity-visitor-field">
+                                <label for="visitor-name">Naam</label>
+                                <InputText id="visitor-name" @bind-Value="visitor.Name" autocomplete="name" disabled="@(busy || RegistrationClosed)" />
+                                <ValidationMessage For="@(() => visitor.Name)" />
+                            </div>
+                            <div class="activity-visitor-field">
+                                <label for="visitor-email">E-mailadres</label>
+                                <InputText id="visitor-email" type="email" @bind-Value="visitor.Email" autocomplete="email" disabled="@(busy || RegistrationClosed)" />
+                                <ValidationMessage For="@(() => visitor.Email)" />
+                            </div>
+                            <div class="activity-visitor-field">
+                                <label for="visitor-phone">Telefoonnummer</label>
+                                <InputText id="visitor-phone" type="tel" @bind-Value="visitor.Phone" autocomplete="tel" placeholder="06 12345678" disabled="@(busy || RegistrationClosed)" />
+                                <ValidationMessage For="@(() => visitor.Phone)" />
+                            </div>
+                        </div>
+                        <label class="activity-comment-option">
+                            <span>Opmerking voor de organisator <span class="activity-comment-optional">(optioneel)</span></span>
+                            <InputTextArea @bind-Value="visitor.Comment" maxlength="1000" rows="3" disabled="@(busy || RegistrationClosed)" placeholder="Bijvoorbeeld dieetwensen of andere informatie" />
+                        </label>
+                        @if (activity.AllowsGuest)
+                        {
+                            <label class="activity-guest-option"><InputCheckbox @bind-Value="visitor.BringsGuest" disabled="@(busy || RegistrationClosed)" /> Ik neem een +1 mee</label>
+                        }
+                        <button type="submit" class="activity-button activity-button-primary" disabled="@(busy || RegistrationClosed || NotEnoughSpots)">@(busy ? "Inschrijven…" : "Inschrijven")</button>
+                        @if (RegistrationClosed) { <p class="activity-registration-hint">Inschrijven is gesloten: deze activiteit is al begonnen.</p> }
+                        else if (NotEnoughSpots) { <p class="activity-registration-hint">Deze activiteit is vol.</p> }
+                        <p class="activity-registration-hint">Al ingeschreven als gast? <a href="/uitschrijven">Schrijf je hier uit</a>.</p>
+                    </EditForm>
+                }
+                else if (registered)
+                {
+                    <p class="activity-status" role="status">Je bent ingeschreven@(registeredWithGuest ? " met een +1." : ".")</p>
+                    @if (RegistrationClosed)
+                    {
+                        @if (!string.IsNullOrWhiteSpace(registeredComment)) { <p class="activity-registration-comment">Opmerking: @registeredComment</p> }
+                        <p class="activity-registration-hint">Deze activiteit is al begonnen; je inschrijving kan niet meer worden aangepast.</p>
+                    }
+                    else
+                    {
+                        <label class="activity-comment-option">
+                            <span>Opmerking voor de organisator <span class="activity-comment-optional">(optioneel)</span></span>
+                            <textarea @bind="commentInput" @bind:event="oninput" maxlength="1000" rows="3" disabled="@busy" placeholder="Bijvoorbeeld dieetwensen of andere informatie"></textarea>
+                            <small>Deze opmerking is zichtbaar voor de organisator.</small>
+                        </label>
+                        @* Also shown when +1's were switched off after registering, so an existing +1 can still be removed. *@
+                        @if (activity.AllowsGuest || registeredWithGuest)
+                        {
+                            <label class="activity-guest-option"><input type="checkbox" @bind="bringsGuest" disabled="@busy" /> Ik neem een +1 mee</label>
+                        }
+                        <div class="activity-actions">
+                            <button class="activity-button activity-button-primary" disabled="@(busy || !RegistrationChanged)" @onclick="SaveRegistration">@(busy ? "Opslaan…" : "Wijzigingen opslaan")</button>
+                            <button class="activity-button activity-button-danger" disabled="@busy" @onclick="AskToUnregister">Uitschrijven</button>
+                        </div>
+                        <p class="activity-registration-hint">Je kunt je +1 en je opmerking aanpassen of je uitschrijven tot de activiteit begint.</p>
+                    }
+                }
+                else
+                {
+                    <label class="activity-comment-option">
+                        <span>Opmerking voor de organisator <span class="activity-comment-optional">(optioneel)</span></span>
+                        <textarea @bind="commentInput" maxlength="1000" rows="3" disabled="@(busy || RegistrationClosed)" placeholder="Bijvoorbeeld dieetwensen of andere informatie"></textarea>
+                        <small>Deze opmerking is zichtbaar voor de organisator.</small>
+                    </label>
+                    @if (activity.AllowsGuest)
+                    {
+                        <label class="activity-guest-option"><input type="checkbox" @bind="bringsGuest" disabled="@(busy || RegistrationClosed)" /> Ik neem een +1 mee</label>
+                    }
+                    <button class="activity-button activity-button-primary" disabled="@(busy || RegistrationClosed || NotEnoughSpots)" @onclick="Register">@(busy ? "Inschrijven…" : "Inschrijven")</button>
+                    @if (RegistrationClosed) { <p class="activity-registration-hint">Inschrijven is gesloten: deze activiteit is al begonnen.</p> }
+                    else if (NotEnoughSpots) { <p class="activity-registration-hint">Deze activiteit is vol.</p> }
+                    else { <p class="activity-registration-hint">@(bringsGuest ? "Je schrijft jezelf in met een +1. Je +1 telt niet mee voor het maximum." : "Schrijf jezelf in om deel te nemen.")</p> }
+                }
+            </div>
+            @if (administrator)
+            {
+                <div class="activity-actions">
+                    <a class="activity-button activity-button-secondary" href="/activities/@Id/edit">Wijzigen</a>
+                    <button class="activity-button activity-button-danger" disabled="@busy" @onclick="AskToDelete">Verwijderen</button>
+                </div>
+            }
+        </footer>
+        @if (administrator && confirmDelete)
+        {
+            <div class="activity-confirmation">
+                <section class="activity-dialog" role="alert" aria-labelledby="delete-title" aria-describedby="delete-description">
+                    <h2 id="delete-title">Activiteit verwijderen?</h2>
+                    <p id="delete-description">Wil je @activity.Name verwijderen? Ook de inschrijvingen worden verwijderd.</p>
+                    <div class="activity-actions">
+                        <button class="activity-button activity-button-secondary" disabled="@busy" @onclick="() => confirmDelete = false">Annuleren</button>
+                        <button class="activity-button activity-button-danger" disabled="@busy" @onclick="Delete">Ja, verwijderen</button>
+                    </div>
+                </section>
+            </div>
+        }
+        @if (registered && confirmUnregister)
+        {
+            <div class="activity-confirmation">
+                <section class="activity-dialog" role="alert" aria-labelledby="unregister-title" aria-describedby="unregister-description">
+                    <h2 id="unregister-title">Uitschrijven?</h2>
+                    <p id="unregister-description">Wil je je uitschrijven voor @activity.Name?@(registeredWithGuest ? " Je +1 wordt ook uitgeschreven." : "") Zolang er plek is, kun je je later opnieuw inschrijven.</p>
+                    <div class="activity-actions">
+                        <button class="activity-button activity-button-secondary" disabled="@busy" @onclick="() => confirmUnregister = false">Annuleren</button>
+                        <button class="activity-button activity-button-danger" disabled="@busy" @onclick="Unregister">@(busy ? "Uitschrijven…" : "Ja, uitschrijven")</button>
+                    </div>
+                </section>
+            </div>
+        }
+    }
+</div>
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private static readonly CultureInfo Dutch = new("nl-NL");
+    private ActivityDto? activity;
+    private string? error;
+    private bool loggedIn, administrator, registered, busy, confirmDelete, confirmUnregister, bringsGuest, registeredWithGuest;
+    // Visitors without an account (a "gast") fill in this form; afterwards visitorResult holds their cancellation code.
+    private VisitorRegistrationDto visitor = new();
+    private VisitorRegistrationResultDto? visitorResult;
+    private bool visitorBroughtGuest;
+    // commentInput and bringsGuest are what the visitor is typing; registeredComment and registeredWithGuest are what the API has stored.
+    private string? commentInput, registeredComment, notice;
+    private IReadOnlyList<ActivityRegistrationDto> organizerRegistrations = Array.Empty<ActivityRegistrationDto>();
+    private bool RegistrationClosed => activity is null || activity.StartTime <= DateTime.Now;
+    // A +1 does not take a spot, so only the participants count towards the maximum.
+    private bool NotEnoughSpots => activity?.MaxParticipants is int maximum && activity.RegistrationCount >= maximum;
+    private bool RegistrationChanged => bringsGuest != registeredWithGuest || NormalizeComment(commentInput) != registeredComment;
+    private Guid? loadedId;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (loadedId == Id) return;
+        loadedId = Id;
+        activity = null; organizerRegistrations = Array.Empty<ActivityRegistrationDto>(); error = null; notice = null; confirmDelete = false; confirmUnregister = false; bringsGuest = false; registeredWithGuest = false; registered = false; commentInput = null; registeredComment = null;
+        visitor = new(); visitorResult = null; visitorBroughtGuest = false;
+        await Run(async () => {
+            var session = await TokenStore.GetSessionAsync();
+            loggedIn = session is not null;
+            administrator = session?.IsAdministrator() == true;
+            await RefreshActivityData();
+        });
+        StateHasChanged();
+    }
+    private Task Register() => Run(async () => {
+        await Api.RegisterAsync(Id, bringsGuest, commentInput);
+        await RefreshActivityData();
+    });
+    private Task RegisterVisitor() => Run(async () => {
+        var result = await Api.RegisterVisitorAsync(Id, visitor);
+        activity = result.Activity;
+        visitorBroughtGuest = visitor.BringsGuest;
+        visitorResult = result;
+        visitor = new();
+    });
+    private Task SaveRegistration() => Run(async () => {
+        await Api.UpdateRegistrationAsync(Id, bringsGuest, commentInput);
+        await RefreshActivityData();
+        notice = "Je wijzigingen zijn opgeslagen.";
+    });
+    private Task Unregister() => Run(async () => {
+        await Api.UnregisterAsync(Id);
+        confirmUnregister = false;
+        await RefreshActivityData();
+        notice = "Je bent uitgeschreven.";
+    });
+    private void AskToUnregister() { confirmDelete = false; confirmUnregister = true; }
+    private void AskToDelete() { confirmUnregister = false; confirmDelete = true; }
+    private async Task RefreshActivityData()
+    {
+        activity = await Api.GetActivityAsync(Id);
+        if (!loggedIn) return;
+        var registration = await Api.GetRegistrationAsync(Id);
+        registered = registration.IsRegistered;
+        registeredWithGuest = bringsGuest = registration.BringsGuest;
+        registeredComment = commentInput = registration.Comment;
+        organizerRegistrations = administrator
+            ? await Api.GetActivityRegistrationsAsync(Id)
+            : Array.Empty<ActivityRegistrationDto>();
+    }
+    private Task Delete() => Run(async () => { await Api.DeleteActivityAsync(Id); Navigation.NavigateTo("/activities"); });
+    private static string? NormalizeComment(string? comment) => string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+    // For example "5 deelnemers (waarvan 2 gasten)".
+    private string OrganizerSummary
+    {
+        get
+        {
+            var visitors = organizerRegistrations.Count(item => item.IsVisitor);
+            var summary = ParticipantLabel(activity!.RegistrationCount);
+            if (visitors > 0) summary += $" (waarvan {(visitors == 1 ? "1 gast" : $"{visitors} gasten")})";
+            return summary;
+        }
+    }
+    private static string ParticipantLabel(int count) => count == 1 ? "1 deelnemer" : $"{count} deelnemers";
+    private async Task Run(Func<Task> action)
+    {
+        if (busy) return;
+        busy = true; error = null; notice = null;
+        try { await action(); }
+        catch (NotLoggedInException) { Navigation.NavigateTo("/"); }
+        catch (HttpRequestException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

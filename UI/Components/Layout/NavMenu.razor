@@ -1,0 +1,137 @@
+@rendermode InteractiveServer
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
+@using Shared.DTOs
+@using UI.Service
+@inject JwtTokenStore TokenStore
+@inject NavigationManager Navigation
+@inject ILogger<NavMenu> Logger
+
+@*
+    Interactive menu inside the (static) layout.
+    It reads who is logged in, so it can show either "Inloggen" or the user's name with "Uitloggen".
+    On mobile the links fold away behind a hamburger button.
+*@
+
+<nav class="app-nav" aria-label="Hoofdmenu">
+    <button class="menu-toggle @(menuOpen ? "open" : null)"
+            type="button"
+            aria-controls="app-menu"
+            aria-expanded="@(menuOpen ? "true" : "false")"
+            aria-label="@(menuOpen ? "Menu sluiten" : "Menu openen")"
+            @onclick="ToggleMenu">
+        <span class="menu-toggle-bar"></span>
+        <span class="menu-toggle-bar"></span>
+        <span class="menu-toggle-bar"></span>
+    </button>
+
+    <div id="app-menu" class="menu @(menuOpen ? "open" : null)">
+        <div class="menu-links">
+            <NavLink class="menu-link" href="" Match="NavLinkMatch.All">Home</NavLink>
+
+            @* Everyone can see the activities; visitors without an account register as a guest. *@
+            @if (state != LoginState.Unknown)
+            {
+                <NavLink class="menu-link" href="activities">Activiteiten</NavLink>
+            }
+
+            @if (state == LoginState.LoggedIn)
+            {
+                <NavLink class="menu-link" href="mijn-activiteiten">Mijn activiteiten</NavLink>
+
+                @if (user!.IsAdministrator())
+                {
+                    <NavLink class="menu-link" href="activiteit-aanmaken">Activiteit aanmaken</NavLink>
+                    <NavLink class="menu-link" href="gebruikers" title="Gebruikers beheren">Gebruikers</NavLink>
+                }
+            }
+        </div>
+
+        @* Nothing is shown here until we know whether someone is logged in, so "Inloggen" never flickers. *@
+        @if (state == LoginState.LoggedIn)
+        {
+            <div class="menu-account">
+                <span class="menu-user" title="@user!.Email">
+                    <span class="menu-user-initial" aria-hidden="true">@Initial(user.Name)</span>
+                    <span class="menu-user-text">
+                        <span class="menu-user-name">@user.Name</span>
+                        <span class="menu-user-role">@(user.IsAdministrator() ? "Beheerder" : "Medewerker")</span>
+                    </span>
+                </span>
+                <button class="menu-logout" type="button" @onclick="LogoutAsync">Uitloggen</button>
+            </div>
+        }
+        else if (state == LoginState.LoggedOut)
+        {
+            <div class="menu-account">
+                <NavLink class="menu-login" href="inloggen">Inloggen</NavLink>
+            </div>
+        }
+    </div>
+</nav>
+
+@code {
+    private enum LoginState { Unknown, LoggedOut, LoggedIn }
+
+    private LoginState state = LoginState.Unknown;
+    private LoginResponse? user;
+    private bool menuOpen;
+
+    protected override void OnInitialized()
+    {
+        // Logging in or out ends with a navigation, so every page change re-checks who is logged in.
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The browser storage can only be read once the page is interactive.
+        if (firstRender)
+            await RefreshUserAsync();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        menuOpen = false;
+        _ = InvokeAsync(RefreshUserAsync);
+    }
+
+    private async Task RefreshUserAsync()
+    {
+        try
+        {
+            user = await TokenStore.GetSessionAsync();
+            state = user is null ? LoginState.LoggedOut : LoginState.LoggedIn;
+            StateHasChanged();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser tab is already closed; nothing to update.
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Could not read the login state for the menu.");
+        }
+    }
+
+    private void ToggleMenu() => menuOpen = !menuOpen;
+
+    private async Task LogoutAsync()
+    {
+        await TokenStore.ClearTokenAsync();
+        user = null;
+        state = LoginState.LoggedOut;
+        menuOpen = false;
+        Navigation.NavigateTo("/inloggen");
+    }
+
+    private static string Initial(string name)
+    {
+        return string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpperInvariant();
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

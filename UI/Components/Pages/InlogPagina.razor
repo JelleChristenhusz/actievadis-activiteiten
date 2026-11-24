@@ -1,0 +1,106 @@
+@page "/inloggen"
+@rendermode InteractiveServer
+@layout UI.Components.Layout.AppLayout
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Shared.DTOs
+@using UI.Service
+@inject IAuthenticationApiService AuthenticationApiService
+@inject ProtectedLocalStorage LocalStorage
+@inject JwtTokenStore TokenStore
+@inject NavigationManager Navigation
+@inject ILogger<InlogPagina> Logger
+
+<PageTitle>Inloggen</PageTitle>
+
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-header">
+            <h1>Inloggen</h1>
+            <p>Log in met je Covadis-account om activiteiten te bekijken en aan te maken.</p>
+        </div>
+
+        <EditForm Model="loginRequest" OnValidSubmit="LoginAsync" FormName="login">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label for="email">E-mailadres</label>
+                <InputText id="email"
+                           type="email"
+                           autocomplete="username"
+                           class="form-control"
+                           placeholder="naam@covadis.nl"
+                           @bind-Value="loginRequest.Email" />
+                <ValidationMessage For="() => loginRequest.Email" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Wachtwoord</label>
+                <InputText id="password"
+                           type="password"
+                           autocomplete="current-password"
+                           class="form-control"
+                           placeholder="Je wachtwoord"
+                           @bind-Value="loginRequest.Password" />
+                <ValidationMessage For="() => loginRequest.Password" />
+            </div>
+
+            @if (errorMessage is not null)
+            {
+                <div class="login-error" role="alert">@errorMessage</div>
+            }
+
+            <button type="submit" class="btn-brand login-button" disabled="@isSubmitting">
+                @(isSubmitting ? "Bezig met inloggen..." : "Inloggen")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private readonly LoginRequest loginRequest = new();
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Already logged in: there is nothing to do here.
+        if (firstRender && await TokenStore.GetSessionAsync() is not null)
+            Navigation.NavigateTo("/");
+    }
+
+    private async Task LoginAsync()
+    {
+        if (isSubmitting)
+            return;
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await AuthenticationApiService.LoginAsync(loginRequest);
+            if (!result.Succeeded)
+            {
+                errorMessage = result.ErrorMessage;
+                return;
+            }
+
+            await LocalStorage.SetAsync(AuthenticationStorage.SessionKey, result.User!);
+            Navigation.NavigateTo("/");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "The login API could not be reached.");
+            errorMessage = "De API is niet bereikbaar. Controleer of de API draait en probeer het opnieuw.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "An unexpected error occurred while logging in.");
+            errorMessage = "Er ging iets mis tijdens het inloggen. Probeer het opnieuw.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

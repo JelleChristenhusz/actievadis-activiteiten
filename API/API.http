@@ -1,0 +1,17 @@
+@API_HostAddress = http://localhost:5259
+
+### Log in with the seeded development account.
+# @name login
+POST {{API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@actievadis.nl",
+  "password": "Welkom123!"
+}
+
+### Copy data.accessToken from the login response.
+@accessToken = REPLACE_WITH_ACCESS_TOKEN
+GET {{API_HostAddress}}/api/activities
+Authorization: Bearer {{accessToken}}
+Accept: application/json

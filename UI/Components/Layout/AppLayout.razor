@@ -1,0 +1,32 @@
+@inherits LayoutComponentBase
+
+@* Layout with the Covadis header, menu and footer. Pages opt in with @@layout AppLayout. *@
+
+<div class="app-shell">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <a class="app-brand" href="" aria-label="Actievadis, naar de homepagina">
+                <img class="app-logo" src="/images/covadis-images.png" alt="Covadis" />
+            </a>
+
+            <NavMenu />
+        </div>
+    </header>
+
+    <main class="app-main">
+        @Body
+    </main>
+
+    @* Blazor shows this bar by itself when something unexpected goes wrong, instead of a silently frozen page. *@
+    <div id="blazor-error-ui" role="alert">
+        Er ging iets mis. <a href="" class="reload">Pagina herladen</a>
+        <a class="dismiss" aria-label="Melding sluiten">&times;</a>
+    </div>
+
+    <footer class="app-footer">
+        <div class="app-footer-inner">
+            <span>Actievadis &middot; activiteiten van Covadis</span>
+            <span>&copy; @DateTime.Now.Year Covadis</span>
+        </div>
+    </footer>
+</div>

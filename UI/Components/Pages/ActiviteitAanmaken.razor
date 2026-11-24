@@ -1,0 +1,386 @@
+@page "/activiteit-aanmaken"
+@using System.Net
+@using UI.Models
+@using Shared.DTOs
+@using UI.Service
+@layout UI.Components.Layout.AppLayout
+@rendermode InteractiveServer
+@inject JwtTokenStore TokenStore
+@inject IActivityApiService ActivityApiService
+@inject NavigationManager Navigation
+@inject ILogger<ActiviteitAanmaken> Logger
+
+<div class="activity-page">
+
+    <div class="page-header">
+        <h1>Nieuwe activiteit</h1>
+        <p>Vul de gegevens hieronder in om een nieuwe activiteit aan te maken.</p>
+    </div>
+
+    @if (isAdministrator)
+    {
+    <div class="activity-card">
+
+        <EditForm Model="@activiteit"
+                  FormName="ActiviteitAanmaken"
+                  OnValidSubmit="HandleSubmit"
+                  OnInvalidSubmit="HandleInvalidSubmit">
+
+            <DataAnnotationsValidator />
+
+            <div class="validation-summary">
+                <ValidationSummary />
+            </div>
+
+            <section class="form-section">
+                <h2>Algemene informatie</h2>
+
+                <div class="mb-3">
+                    <label class="form-label" for="activiteitnaam">
+                        <span class="required-star">*</span>
+                        Activiteitnaam
+                    </label>
+
+                    <InputText id="activiteitnaam"
+                               class="form-control"
+                               placeholder="Bijvoorbeeld: LAN-party"
+                               @bind-Value="activiteit.Name" />
+
+                    <ValidationMessage For="@(() => activiteit.Name)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="locatie">
+                        <span class="required-star">*</span>
+                        Locatie
+                    </label>
+
+                    <InputText id="locatie"
+                               class="form-control"
+                               placeholder="Bijvoorbeeld: Kantoor Doetinchem"
+                               @bind-Value="activiteit.Location" />
+
+                    <ValidationMessage For="@(() => activiteit.Location)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="omschrijving">
+                        <span class="required-star">*</span>
+                        Omschrijving
+                    </label>
+
+                    <InputTextArea id="omschrijving"
+                                   class="form-control description-input"
+                                   placeholder="Beschrijf de activiteit..."
+                                   @bind-Value="activiteit.Description" />
+
+                    <ValidationMessage For="@(() => activiteit.Description)" />
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h2>Datum en tijd</h2>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="begintijd">
+                            <span class="required-star">*</span>
+                            Begintijd
+                        </label>
+
+                        <InputDate id="begintijd"
+                                   class="form-control"
+                                   Type="InputDateType.DateTimeLocal"
+                                   step="60"
+                                   min="@MinDateTime"
+                                   @bind-Value="activiteit.StartTime" />
+
+                        <ValidationMessage For="@(() => activiteit.StartTime)" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="eindtijd">
+                            <span class="required-star">*</span>
+                            Eindtijd
+                        </label>
+
+                        <InputDate id="eindtijd"
+                                   class="form-control"
+                                   Type="InputDateType.DateTimeLocal"
+                                   step="60"
+                                   min="@(activiteit.StartTime.ToString("yyyy-MM-ddTHH:mm"))"
+                                   @bind-Value="activiteit.EndTime" />
+
+                        <ValidationMessage For="@(() => activiteit.EndTime)" />
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h2>Deelnemers en kosten</h2>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="kosten">
+                            <span class="required-star">*</span>
+                            Kosten
+                        </label>
+
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+
+                            <InputNumber id="kosten"
+                                         class="form-control"
+                                         @bind-Value="activiteit.Cost" />
+                        </div>
+
+                        <ValidationMessage For="@(() => activiteit.Cost)" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="minimaalAantalDeelnemers">
+                            <span class="required-star">*</span>
+                            Minimum deelnemers
+                        </label>
+
+                        <InputNumber id="minimaalAantalDeelnemers"
+                                     class="form-control"
+                                     @bind-Value="activiteit.MinParticipants" />
+
+                        <ValidationMessage For="@(() => activiteit.MinParticipants)" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="maximaalAantalDeelnemers">
+                            Maximum deelnemers
+                        </label>
+
+                        <InputNumber id="maximaalAantalDeelnemers"
+                                     class="form-control"
+                                     @bind-Value="activiteit.MaxParticipants" />
+
+                        <ValidationMessage For="@(() => activiteit.MaxParticipants)" />
+                    </div>
+                </div>
+
+                <div class="food-option">
+                    <div class="form-check form-switch">
+                        <InputCheckbox id="inclusieveEten"
+                                       class="form-check-input"
+                                       @bind-Value="activiteit.IncludesFood" />
+
+                        <label class="form-check-label" for="inclusieveEten">
+                            Eten is inbegrepen bij deze activiteit
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h2>Extra informatie</h2>
+                <label class="form-check mb-3"><InputCheckbox class="form-check-input" @bind-Value="activiteit.AllowsGuest" /> +1 toegestaan</label>
+
+                <div class="mb-3">
+                    <label class="form-label" for="afbeelding">
+                        Afbeelding
+                        <span class="optional-label">optioneel</span>
+                    </label>
+
+                    <InputFile id="afbeelding"
+                               class="form-control"
+                               accept=".jpg,.jpeg,.png,.webp"
+                               OnChange="HandleImageSelected" />
+
+                    @if (!string.IsNullOrEmpty(geselecteerdeAfbeeldingNaam))
+                    {
+                        <div class="form-text">
+                            Gekozen bestand: @geselecteerdeAfbeeldingNaam
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(afbeeldingFout))
+                    {
+                        <div class="validation-message" role="alert">@afbeeldingFout</div>
+                    }
+
+                    <ValidationMessage For="@(() => activiteit.ImageUrl)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="benodigdheden">
+                        Benodigdheden
+                        <span class="optional-label">optioneel</span>
+                    </label>
+
+                    <InputText id="benodigdheden"
+                               class="form-control"
+                               placeholder="Bijvoorbeeld: sportkleding, laptop..."
+                               @bind-Value="activiteit.Requirements" />
+
+                    <ValidationMessage For="@(() => activiteit.Requirements)" />
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary submit-button">
+                    Activiteit aanmaken
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(foutmelding))
+            {
+                <div class="alert alert-danger mt-4" role="alert">
+                    @foutmelding
+                </div>
+            }
+
+        </EditForm>
+    </div>
+    }
+    else { <p>Alleen beheerders kunnen activiteiten aanmaken.</p> }
+</div>
+
+@code {
+    private bool isAdministrator;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (await TokenStore.GetTokenAsync() is null) { Navigation.NavigateTo("/"); return; }
+        isAdministrator = await TokenStore.IsAdministratorAsync();
+        StateHasChanged();
+    }
+
+    private static DateTime WithoutSeconds(DateTime timestamp) =>
+        new(timestamp.Year, timestamp.Month, timestamp.Day, timestamp.Hour, timestamp.Minute, 0, timestamp.Kind);
+
+    private CreateActivityForm activiteit = new()
+    {
+        StartTime = WithoutSeconds(DateTime.Now.AddHours(1)),
+        EndTime = WithoutSeconds(DateTime.Now.AddHours(2))
+    };
+
+    private string foutmelding = string.Empty;
+
+    private string MinDateTime =>
+        DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+    // Same limits as the API (ActivitiesController.UploadImage).
+    private const long MaxImageSize = 5 * 1024 * 1024;
+    private static readonly string[] AllowedImageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+
+    private IBrowserFile? geselecteerdeAfbeelding;
+    private string? geselecteerdeAfbeeldingNaam;
+    private string? afbeeldingFout;
+
+    // Check the photo right away, so a wrong file is reported here instead of failing on save.
+    private void HandleImageSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+
+        if (!AllowedImageExtensions.Contains(extension))
+        {
+            RejectImage("Kies een foto van het type JPG, PNG of WEBP.");
+            return;
+        }
+
+        if (file.Size > MaxImageSize)
+        {
+            RejectImage($"Deze foto is {file.Size / 1024.0 / 1024.0:0.0} MB. Kies een foto van maximaal 5 MB.");
+            return;
+        }
+
+        afbeeldingFout = null;
+        geselecteerdeAfbeelding = file;
+        geselecteerdeAfbeeldingNaam = file.Name;
+    }
+
+    private void RejectImage(string message)
+    {
+        geselecteerdeAfbeelding = null;
+        geselecteerdeAfbeeldingNaam = null;
+        afbeeldingFout = message;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (!isAdministrator) return;
+        foutmelding = string.Empty;
+
+        var naam = activiteit.Name;
+
+        if (geselecteerdeAfbeelding is not null)
+        {
+            try
+            {
+                await using var stream = geselecteerdeAfbeelding.OpenReadStream(MaxImageSize);
+
+                activiteit.ImageUrl = await ActivityApiService.UploadImageAsync(
+                    stream,
+                    geselecteerdeAfbeelding.Name,
+                    geselecteerdeAfbeelding.ContentType);
+
+                // Uploaded: when saving fails below, trying again reuses this photo instead of uploading it twice.
+                geselecteerdeAfbeelding = null;
+            }
+            catch (NotLoggedInException)
+            {
+                Navigation.NavigateTo("/");
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or HttpRequestException)
+            {
+                Logger.LogError(ex, "Could not upload the activity image.");
+                foutmelding = ex is HttpRequestException { StatusCode: HttpStatusCode.BadRequest } or IOException
+                    ? "De foto is niet geaccepteerd. Kies een JPG, PNG of WEBP van maximaal 5 MB."
+                    : "De foto kon niet worden geüpload. Controleer of de API draait en probeer het opnieuw.";
+                return;
+            }
+        }
+
+        try
+        {
+            await ActivityApiService.CreateActivityAsync(MapToApi(activiteit));
+        }
+        catch (NotLoggedInException)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogError(ex, "Could not save the new activity.");
+            foutmelding =
+                "Opslaan is niet gelukt. Controleer of de API draait en probeer het opnieuw.";
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/activities?nieuw={Uri.EscapeDataString(naam)}");
+    }
+
+    private void HandleInvalidSubmit()
+    {
+        foutmelding = string.Empty;
+    }
+
+    // Keep UI-only form validation separate from the API contract.
+    private static ActivityInputDto MapToApi(CreateActivityForm form)
+    {
+        return new ActivityInputDto
+        {
+            Name = form.Name,
+            Location = form.Location,
+            Description = form.Description,
+            StartTime = form.StartTime,
+            EndTime = form.EndTime,
+            IncludesFood = form.IncludesFood,
+            AllowsGuest = form.AllowsGuest,
+            Cost = form.Cost,
+            MinParticipants = form.MinParticipants,
+            MaxParticipants = form.MaxParticipants,
+            ImageUrl = string.IsNullOrWhiteSpace(form.ImageUrl) ? null : form.ImageUrl,
+            Requirements = string.IsNullOrWhiteSpace(form.Requirements) ? null : form.Requirements
+        };
+    }
+}
